@@ -36,6 +36,7 @@ var detailUsername, detailPassword string
 var detailAMTUsername, detailAMTPassword, detailAMTIP string
 var detailIPMIUsername, detailIPMIPassword, detailIPMIIP, detailIPMISOL string
 var detailRedFishUsername, detailRedFishPassword, detailRedFishIP, detailRedFishSOL string
+var detailLibVirtConsoleType string
 var detailLocator, detailPlot, detailComplex, detailPhysicalLocation, detailLinkName, detailMac, detailPxeName string
 var detailIsProvisioning bool
 var detailNetwork int

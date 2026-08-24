@@ -43,6 +43,7 @@ var foundationLibVirtGetCmd = &cobra.Command{
 Locator:        {{.Locator}}
 Complex:        {{.LibvirtComplex | extractID}}
 VM UUID:        {{.LibvirtUUID}}
+Console Type:   {{.LibvirtConsoleType}}
 Type:           {{.Type}}
 Site:           {{.Site | extractID}}
 Blueprint:      {{.Blueprint | extractID}}
@@ -92,6 +93,10 @@ var foundationLibVirtCreateCmd = &cobra.Command{
 			o.LibvirtComplex = cinp.StringAddr(r.GetURI())
 		}
 
+		if detailLibVirtConsoleType != "" {
+			o.LibvirtConsoleType = &detailLibVirtConsoleType
+		}
+
 		err := o.Create(ctx)
 		if err != nil {
 			return err
@@ -101,6 +106,7 @@ var foundationLibVirtCreateCmd = &cobra.Command{
 Locator:        {{.Locator}}
 Complex:        {{.LibvirtComplex | extractID}}
 VM UUID:        {{.LibvirtUUID}}
+Console Type:   {{.LibvirtConsoleType}}
 Type:           {{.Type}}
 Site:           {{.Site | extractID}}
 Blueprint:      {{.Blueprint | extractID}}
@@ -151,6 +157,10 @@ var foundationLibVirtUpdateCmd = &cobra.Command{
 			o.LibvirtComplex = cinp.StringAddr(r.GetURI())
 		}
 
+		if detailLibVirtConsoleType != "" {
+			o.LibvirtConsoleType = &detailLibVirtConsoleType
+		}
+
 		err := o.Update(ctx)
 		if err != nil {
 			return err
@@ -160,6 +170,7 @@ var foundationLibVirtUpdateCmd = &cobra.Command{
 Locator:        {{.Locator}}
 Complex:        {{.LibvirtComplex | extractID}}
 VM UUID:        {{.LibvirtUUID}}
+Console Type:   {{.LibvirtConsoleType}}
 Type:           {{.Type}}
 Site:           {{.Site | extractID}}
 Blueprint:      {{.Blueprint | extractID}}
@@ -183,10 +194,12 @@ func init() {
 	foundationLibVirtCreateCmd.Flags().StringVarP(&detailSite, "site", "s", "", "Site of New LibVirt Foundation")
 	foundationLibVirtCreateCmd.Flags().StringVarP(&detailBlueprint, "blueprint", "b", "", "Blueprint of New LibVirt Foundation")
 	foundationLibVirtCreateCmd.Flags().StringVarP(&detailComplex, "complex", "x", "", "Complex of New LibVirt Foundation")
+	foundationLibVirtCreateCmd.Flags().StringVarP(&detailLibVirtConsoleType, "libvirt-console", "o", "", "Console Type (spice/serial) of New LibVirt Foundation")
 
 	foundationLibVirtUpdateCmd.Flags().StringVarP(&detailSite, "site", "s", "", "Update the Site of Foundation with value")
 	foundationLibVirtUpdateCmd.Flags().StringVarP(&detailBlueprint, "blueprint", "b", "", "Update the Blueprint of Foundation with value")
 	foundationLibVirtUpdateCmd.Flags().StringVarP(&detailComplex, "complex", "x", "", "Update the Complex of the LibVirt Foundation")
+	foundationLibVirtUpdateCmd.Flags().StringVarP(&detailLibVirtConsoleType, "libvirt-console", "o", "", "Update the Console Type (spice/serial) of the LibVirt Foundation")
 
 	foundationCmd.AddCommand(foundationLibVirtCmd)
 	foundationLibVirtCmd.AddCommand(foundationLibVirtGetCmd, foundationLibVirtCreateCmd, foundationLibVirtUpdateCmd)
