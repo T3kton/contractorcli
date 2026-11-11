@@ -44,7 +44,7 @@ func foundationArgCheck(cmd *cobra.Command, args []string) error {
 
 func foundationInterfaceArgCheck(cmd *cobra.Command, args []string) error {
 	if len(args) != 1 {
-		return errors.New("requires a Structure Interface Id argument")
+		return errors.New("requires a Foundation Interface Id argument")
 	}
 	return nil
 }
@@ -68,7 +68,7 @@ var foundationListCmd = &cobra.Command{
 		for v := range vchan {
 			rl = append(rl, v)
 		}
-		outputList(rl, []string{"Id", "Site", "Locator", "Structure", "State", "Blueprint", "Created", "Updated"}, "{{.GetURI | extractID}}	{{.Site | extractID}}	{{.Locator}}	{{or .Structure \":<None>:\" | extractID}}	{{.State}}	{{.Blueprint | extractID}}	{{.Created}}	{{.Updated}}\n")
+		outputList(rl, []string{"Id", "Site", "Locator", "Structure", "State", "Type", "Blueprint", "Created", "Updated"}, "{{.GetURI | extractID}}	{{.Site | extractID}}	{{.Locator}}	{{or .Structure \":<None>:\" | extractID}}	{{.State}}	{{.Type}}	{{.Blueprint | extractID}}	{{.Created}}	{{.Updated}}\n")
 
 		return nil
 	},
@@ -93,7 +93,7 @@ Type:          {{.Type}}
 Site:          {{.Site | extractID}}
 Blueprint:     {{.Blueprint | extractID}}
 Structure:     {{or .Structure ":<None>:" | extractID}}
-Id Map:        {{.IDMap}}
+Id Map:        {{ prettyMap 15 .IDMap }}
 Class List:    {{.ClassList}}
 State:         {{.State}}
 Located At:    {{.LocatedAt}}
@@ -298,10 +298,6 @@ var foundationInterfaceUpdateCmd = &cobra.Command{
 			o.PhysicalLocation = &detailPhysicalLocation
 		}
 
-		// if detailIsProvisioning != "" {
-		// 	o.IsProvisioning = detailIsProvisioning
-		// }
-
 		if detailLinkName != "" {
 			o.LinkName = &detailLinkName
 		}
@@ -344,7 +340,7 @@ Updated:          {{.Updated}}
 
 var foundationInterfacePXECmd = &cobra.Command{
 	Use:   "pxe",
-	Short: "SetFoundation Interface PXE",
+	Short: "Set Foundation Interface PXE",
 	Args:  foundationInterfaceArgCheck,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		interfaceID, err := strconv.Atoi(args[0])
@@ -386,6 +382,61 @@ var foundationInterfaceDeleteCmd = &cobra.Command{
 		if err := o.Delete(ctx); err != nil {
 			return err
 		}
+
+		return nil
+	},
+}
+
+var foundationInterfaceSetProvisioningCmd = &cobra.Command{
+	Use:   "set-provisioning",
+	Short: "Make an existing Interface the provisioning interface for its foundation",
+	Args:  foundationInterfaceArgCheck,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		interfaceID, err := strconv.Atoi(args[0])
+		if err != nil {
+			return err
+		}
+
+		ctx := cmd.Context()
+
+		target, err := contractorClient.UtilitiesRealNetworkInterfaceGet(ctx, interfaceID)
+		if err != nil {
+			return err
+		}
+
+		if target.Foundation == nil {
+			return errors.New("interface is not attached to a foundation")
+		}
+
+		vchan, err := contractorClient.UtilitiesRealNetworkInterfaceList(ctx, "foundation", map[string]interface{}{"foundation": *target.Foundation})
+		if err != nil {
+			return err
+		}
+		for v := range vchan {
+			if v.IsProvisioning != nil && *v.IsProvisioning && *v.ID != interfaceID {
+				o := contractorClient.UtilitiesRealNetworkInterfaceNewWithID(*v.ID)
+				o.IsProvisioning = cinp.BoolAddr(false)
+				if err := o.Update(ctx); err != nil {
+					return err
+				}
+			}
+		}
+
+		o := contractorClient.UtilitiesRealNetworkInterfaceNewWithID(interfaceID)
+		o.IsProvisioning = cinp.BoolAddr(true)
+		if err := o.Update(ctx); err != nil {
+			return err
+		}
+
+		rl := []cinp.Object{}
+		vchan, err = contractorClient.UtilitiesRealNetworkInterfaceList(ctx, "foundation", map[string]interface{}{"foundation": *target.Foundation})
+		if err != nil {
+			return err
+		}
+		for v := range vchan {
+			rl = append(rl, v)
+		}
+		outputList(rl, []string{"Id", "Name", "Physical Location", "MAC", "Is Provisioning", "Network", "Link Name", "PXE", "Created", "Update"}, "{{.GetURI | extractID}}	{{.Name}}	{{.PhysicalLocation}}	{{.Mac}}	{{.IsProvisioning}}	{{.Network | extractID}}	{{.LinkName}}	{{or .Pxe \":<None>\" | extractID}}	{{.Created}}	{{.Updated}}\n")
 
 		return nil
 	},
@@ -469,7 +520,7 @@ var foundationJobDoUtilityCmd = &cobra.Command{
 var foundationJobIdCmd = &cobra.Command{
 	Use:   "id",
 	Short: "Get the Job Id for active job",
-	Args:  structureArgCheck,
+	Args:  foundationArgCheck,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		foundationID := args[0]
 
@@ -523,7 +574,7 @@ var foundationJobLogCmd = &cobra.Command{
 		for v := range vchan {
 			rl = append(rl, v)
 		}
-		outputList(rl, []string{"Script Name", "Created By", "Started At", "Finished At", "Cancled By", "Cancled At", "Created", "Updated"}, "{{.ScriptName}}	{{.Creator}}	{{.StartedAt}}	{{.FinishedAt}}	{{.CanceledBy}}	{{.CanceledAt}}	{{.Updated}}	{{.Created}}\n")
+		outputList(rl, []string{"Script Name", "Created By", "Started At", "Finished At", "Canceled By", "Canceled At", "Created", "Updated"}, "{{.ScriptName}}	{{.Creator}}	{{.StartedAt}}	{{.FinishedAt}}	{{.CanceledBy}}	{{.CanceledAt}}	{{.Updated}}	{{.Created}}\n")
 
 		return nil
 	},
@@ -576,7 +627,6 @@ func init() {
 	foundationInterfaceUpdateCmd.Flags().StringVarP(&detailName, "name", "n", "", "Update the Name of the Interface")
 	foundationInterfaceUpdateCmd.Flags().StringVarP(&detailPhysicalLocation, "physical", "y", "", "Update the Physical Location of the Interface")
 	foundationInterfaceUpdateCmd.Flags().IntVarP(&detailNetwork, "network", "t", 0, "Update Network id the Interface is attached to")
-	//foundationInterfaceUpdateCmd.Flags().BoolVarP(&detailIsProvisioning, "provisioning", "p", false, "New Interface is the provisioning interface")
 	foundationInterfaceUpdateCmd.Flags().StringVarP(&detailLinkName, "linkname", "l", "", "Update the Link Name of the Interface")
 	foundationInterfaceUpdateCmd.Flags().StringVarP(&detailMac, "mac", "m", "", "Update the MAC of the Interface")
 
@@ -588,7 +638,7 @@ func init() {
 	foundationCmd.AddCommand(foundationListCmd, foundationGetCmd, foundationTypesCmd, foundationDeleteCmd, foundationBootToCmd)
 
 	foundationCmd.AddCommand(foundationInterfaceCmd)
-	foundationInterfaceCmd.AddCommand(foundationInterfaceListCmd, foundationInterfaceGetCmd, foundationInterfaceCreateCmd, foundationInterfaceUpdateCmd, foundationInterfaceDeleteCmd, foundationInterfacePXECmd)
+	foundationInterfaceCmd.AddCommand(foundationInterfaceListCmd, foundationInterfaceGetCmd, foundationInterfaceCreateCmd, foundationInterfaceUpdateCmd, foundationInterfaceDeleteCmd, foundationInterfacePXECmd, foundationInterfaceSetProvisioningCmd)
 
 	foundationCmd.AddCommand(foundationJobCmd)
 	foundationJobCmd.AddCommand(foundationJobIdCmd, foundationJobDoCreateCmd, foundationJobDoDestroyCmd, foundationJobDoUtilityCmd)

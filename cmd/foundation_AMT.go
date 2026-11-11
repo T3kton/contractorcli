@@ -41,13 +41,13 @@ var foundationAMTGetCmd = &cobra.Command{
 		outputDetail(o, `Id:             {{.GetURI | extractID}}
 Locator:        {{.Locator}}
 AMT Username:   {{.AmtUsername}}
-AMT Password:   {{.AmtPassword}}
+AMT Password:   {{.AmtPassword | maskSecret}}
 AMT Ip Address: {{.AmtIPAddress}}
 Plot:           {{.Plot | extractID}}
 Type:           {{.Type}}
 Site:           {{.Site | extractID}}
 Blueprint:      {{.Blueprint | extractID}}
-Id Map:         {{.IDMap}}
+Id Map:         {{ prettyMap 16 .IDMap }}
 Class List:     {{.ClassList}}
 State:          {{.State}}
 Located At:     {{.LocatedAt}}
@@ -104,13 +104,13 @@ var foundationAMTCreateCmd = &cobra.Command{
 		outputDetail(o, `Id:             {{.GetURI | extractID}}
 Locator:        {{.Locator}}
 AMT Username:   {{.AmtUsername}}
-AMT Password:   {{.AmtPassword}}
+AMT Password:   {{.AmtPassword | maskSecret}}
 AMT Ip Address: {{.AmtIPAddress}}
 Plot:           {{.Plot | extractID}}
 Type:           {{.Type}}
 Site:           {{.Site | extractID}}
 Blueprint:      {{.Blueprint | extractID}}
-Id Map:         {{.IDMap}}
+Id Map:         {{ prettyMap 16 .IDMap }}
 Class List:     {{.ClassList}}
 State:          {{.State}}
 Located At:     {{.LocatedAt}}
@@ -178,13 +178,13 @@ var foundationAMTUpdateCmd = &cobra.Command{
 		outputDetail(o, `Id:             {{.GetURI | extractID}}
 Locator:        {{.Locator}}
 AMT Username:   {{.AmtUsername}}
-AMT Password:   {{.AmtPassword}}
+AMT Password:   {{.AmtPassword | maskSecret}}
 AMT Ip Address: {{.AmtIPAddress}}
 Plot:           {{.Plot | extractID}}
 Type:           {{.Type}}
 Site:           {{.Site | extractID}}
 Blueprint:      {{.Blueprint | extractID}}
-Id Map:         {{.IDMap}}
+Id Map:         {{ prettyMap 16 .IDMap }}
 Class List:     {{.ClassList}}
 State:          {{.State}}
 Located At:     {{.LocatedAt}}

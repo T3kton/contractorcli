@@ -42,14 +42,14 @@ var foundationRedFishGetCmd = &cobra.Command{
 		outputDetail(o, `Id:                 {{.GetURI | extractID}}
 Locator:            {{.Locator}}
 RedFish Username:   {{.RedfishUsername}}
-RedFish Password:   {{.RedfishPassword}}
+RedFish Password:   {{.RedfishPassword | maskSecret}}
 RedFish Ip Address: {{.RedfishIPAddress}}
 RedFish SOL Port:   {{.RedfishSolPort}}
 Plot:               {{.Plot | extractID}}
 Type:               {{.Type}}
 Site:               {{.Site | extractID}}
 Blueprint:          {{.Blueprint | extractID}}
-Id Map:             {{.IDMap}}
+Id Map:             {{ prettyMap 20 .IDMap }}
 Class List:         {{.ClassList}}
 State:              {{.State}}
 Located At:         {{.LocatedAt}}
@@ -107,14 +107,14 @@ var foundationRedFishCreateCmd = &cobra.Command{
 		outputDetail(o, `Id:                 {{.GetURI | extractID}}
 Locator:            {{.Locator}}
 RedFish Username:   {{.RedfishUsername}}
-RedFish Password:   {{.RedfishPassword}}
+RedFish Password:   {{.RedfishPassword | maskSecret}}
 RedFish Ip Address: {{.RedfishIPAddress}}
 RedFish SOL Port:   {{.RedfishSolPort}}
 Plot:               {{.Plot | extractID}}
 Type:               {{.Type}}
 Site:               {{.Site | extractID}}
 Blueprint:          {{.Blueprint | extractID}}
-Id Map:             {{.IDMap}}
+Id Map:             {{ prettyMap 20 .IDMap }}
 Class List:         {{.ClassList}}
 State:              {{.State}}
 Located At:         {{.LocatedAt}}
@@ -185,14 +185,14 @@ var foundationRedFishUpdateCmd = &cobra.Command{
 		outputDetail(o, `Id:                 {{.GetURI | extractID}}
 Locator:            {{.Locator}}
 RedFish Username:   {{.RedfishUsername}}
-RedFish Password:   {{.RedfishPassword}}
+RedFish Password:   {{.RedfishPassword | maskSecret}}
 RedFish Ip Address: {{.RedfishIPAddress}}
 RedFish SOL Port:   {{.RedfishSolPort}}
 Plot:               {{.Plot | extractID}}
 Type:               {{.Type}}
 Site:               {{.Site | extractID}}
 Blueprint:          {{.Blueprint | extractID}}
-Id Map:             {{.IDMap}}
+Id Map:             {{ prettyMap 20 .IDMap }}
 Class List:         {{.ClassList}}
 State:              {{.State}}
 Located At:         {{.LocatedAt}}

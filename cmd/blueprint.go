@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	cinp "github.com/cinp/go/v2"
-	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -44,7 +43,7 @@ func scriptArgCheck(cmd *cobra.Command, args []string) error {
 
 func pxeArgCheck(cmd *cobra.Command, args []string) error {
 	if len(args) != 1 {
-		return errors.New("requires a PXE Name(Id) Name argument")
+		return errors.New("requires a PXE Name/Id argument")
 	}
 	return nil
 }
@@ -76,11 +75,11 @@ var blueprintFoundationGetCmd = &cobra.Command{
 Name:                {{.Name}}
 Description:         {{.Description}}
 Parents:             {{.ParentList}}
-Config Values:       {{.ConfigValues}}
+Config Values:       {{ prettyMap 21 .ConfigValues }}
 Foundation Types:    {{.FoundationTypeList}}
-Validation Template: {{.ValidationTemplate}}
+Validation Template: {{ prettyMap 21 .ValidationTemplate }}
 Physical Interfaces: {{.PhysicalInterfaceNames}}
-Script Map:          {{.ScriptMap}}
+Script Map:          {{ prettyMap 21 .ScriptMap }}
 Created:             {{.Created}}
 Updated:             {{.Updated}}
 `)
@@ -128,11 +127,11 @@ var blueprintFoundationCreateCmd = &cobra.Command{
 Name:                {{.Name}}
 Description:         {{.Description}}
 Parents:             {{.ParentList}}
-Config Values:       {{.ConfigValues}}
+Config Values:       {{ prettyMap 21 .ConfigValues }}
 Foundation Types:    {{.FoundationTypeList}}
-Validation Template: {{.ValidationTemplate}}
+Validation Template: {{ prettyMap 21 .ValidationTemplate }}
 Physical Interfaces: {{.PhysicalInterfaceNames}}
-Script Map:          {{.ScriptMap}}
+Script Map:          {{ prettyMap 21 .ScriptMap }}
 Created:             {{.Created}}
 Updated:             {{.Updated}}
 `)
@@ -149,7 +148,10 @@ var blueprintFoundationUpdateCmd = &cobra.Command{
 
 		ctx := cmd.Context()
 
-		o := contractorClient.BlueprintFoundationBluePrintNewWithID(blueprintID)
+		o, err := contractorClient.BlueprintFoundationBluePrintGet(ctx, blueprintID)
+		if err != nil {
+			return err
+		}
 
 		if detailDescription != "" {
 			o.Description = &detailDescription
@@ -172,38 +174,48 @@ var blueprintFoundationUpdateCmd = &cobra.Command{
 				return err
 			}
 			id := p.GetURI()
-			for i := 0; i < len(*o.ParentList); i++ {
-				if (*o.ParentList)[i] == id {
-					*o.ParentList = append((*o.ParentList)[:i], (*o.ParentList)[i+1:]...)
-					break
+			if o.ParentList != nil {
+				for i := 0; i < len(*o.ParentList); i++ {
+					if (*o.ParentList)[i] == id {
+						*o.ParentList = append((*o.ParentList)[:i], (*o.ParentList)[i+1:]...)
+						break
+					}
 				}
 			}
 		}
 
 		if detailAddType != "" {
-			foundationTypeList := append(*o.FoundationTypeList, detailAddType)
-			o.FoundationTypeList = &foundationTypeList
+			if o.FoundationTypeList == nil {
+				o.FoundationTypeList = &[]string{}
+			}
+			*o.FoundationTypeList = append(*o.FoundationTypeList, detailAddType)
 		}
 
 		if detailDeleteType != "" {
-			for i := 0; i < len(*o.FoundationTypeList); i++ {
-				if (*o.FoundationTypeList)[i] == detailDeleteType {
-					*o.FoundationTypeList = append((*o.FoundationTypeList)[:i], (*o.FoundationTypeList)[i+1:]...)
-					break
+			if o.FoundationTypeList != nil {
+				for i := 0; i < len(*o.FoundationTypeList); i++ {
+					if (*o.FoundationTypeList)[i] == detailDeleteType {
+						*o.FoundationTypeList = append((*o.FoundationTypeList)[:i], (*o.FoundationTypeList)[i+1:]...)
+						break
+					}
 				}
 			}
 		}
 
 		if detailAddIfaceName != "" {
-			physicalInterfaceNames := append(*o.PhysicalInterfaceNames, detailAddIfaceName)
-			o.PhysicalInterfaceNames = &physicalInterfaceNames
+			if o.PhysicalInterfaceNames == nil {
+				o.PhysicalInterfaceNames = &[]string{}
+			}
+			*o.PhysicalInterfaceNames = append(*o.PhysicalInterfaceNames, detailAddIfaceName)
 		}
 
 		if detailDeleteIfaceName != "" {
-			for i := 0; i < len(*o.PhysicalInterfaceNames); i++ {
-				if (*o.PhysicalInterfaceNames)[i] == detailDeleteIfaceName {
-					*o.PhysicalInterfaceNames = append((*o.PhysicalInterfaceNames)[:i], (*o.PhysicalInterfaceNames)[i+1:]...)
-					break
+			if o.PhysicalInterfaceNames != nil {
+				for i := 0; i < len(*o.PhysicalInterfaceNames); i++ {
+					if (*o.PhysicalInterfaceNames)[i] == detailDeleteIfaceName {
+						*o.PhysicalInterfaceNames = append((*o.PhysicalInterfaceNames)[:i], (*o.PhysicalInterfaceNames)[i+1:]...)
+						break
+					}
 				}
 			}
 		}
@@ -211,7 +223,7 @@ var blueprintFoundationUpdateCmd = &cobra.Command{
 		// will deal with these later
 		// Template map[string]interface{} `json:"template"`
 
-		err := o.Update(ctx)
+		err = o.Update(ctx)
 		if err != nil {
 			return err
 		}
@@ -220,11 +232,11 @@ var blueprintFoundationUpdateCmd = &cobra.Command{
 Name:                {{.Name}}
 Description:         {{.Description}}
 Parents:             {{.ParentList}}
-Config Values:       {{.ConfigValues}}
+Config Values:       {{ prettyMap 21 .ConfigValues }}
 Foundation Types:    {{.FoundationTypeList}}
-Validation Template: {{.ValidationTemplate}}
+Validation Template: {{ prettyMap 21 .ValidationTemplate }}
 Physical Interfaces: {{.PhysicalInterfaceNames}}
-Script Map:          {{.ScriptMap}}
+Script Map:          {{ prettyMap 21 .ScriptMap }}
 Created:             {{.Created}}
 Updated:             {{.Updated}}
 `)
@@ -276,21 +288,7 @@ var blueprintFoundationConfigCmd = &cobra.Command{
 				(*o.ConfigValues)[configSetName] = configSetValue
 
 			} else if configFile != "" {
-				var reader io.Reader
-				if configFile == "-" {
-					reader = os.Stdin
-				} else {
-					f, err := os.Open(configFile)
-					if err != nil {
-						return err
-					}
-					defer f.Close()
-					reader = f
-				}
-
-				var newValues map[string]interface{}
-				decoder := toml.NewDecoder(reader)
-				err := decoder.Decode(&newValues)
+				newValues, err := readConfigFile(configFile)
 				if err != nil {
 					return err
 				}
@@ -338,7 +336,7 @@ var blueprintFoundationScriptLinkCmd = &cobra.Command{
 	Short: "Link Foundation Blueprint to Script",
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) != 3 {
-			return errors.New("requires a Blueprint Id/Name, Script Id/Nme, and a Link name (ie: create/destroy/etc) Argument")
+			return errors.New("requires a Blueprint Id/Name, Script Id/Name, and a Link name (ie: create/destroy/etc) Argument")
 		}
 		return nil
 	},
@@ -356,7 +354,7 @@ var blueprintFoundationScriptLinkCmd = &cobra.Command{
 
 		_, ok := (*o.ScriptMap)[scriptName]
 		if ok {
-			return fmt.Errorf("blueprint allready has a script linked with that name")
+			return fmt.Errorf("blueprint already has a script linked with that name")
 		}
 
 		s, err := contractorClient.BlueprintScriptGet(ctx, scriptID)
@@ -442,9 +440,9 @@ var blueprintStructureGetCmd = &cobra.Command{
 Name:                  {{.Name}}
 Description:           {{.Description}}
 Parents:               {{.ParentList}}
-Config Values:         {{.ConfigValues}}
+Config Values:         {{ prettyMap 23 .ConfigValues }}
 Foundation BluePrints: {{.FoundationBlueprintList}}
-Script Map:            {{.ScriptMap}}
+Script Map:            {{ prettyMap 23 .ScriptMap }}
 Created:               {{.Created}}
 Updated:               {{.Updated}}
 `)
@@ -493,9 +491,9 @@ var blueprintStructureCreateCmd = &cobra.Command{
 Name:                  {{.Name}}
 Description:           {{.Description}}
 Parents:               {{.ParentList}}
-Config Values:         {{.ConfigValues}}
+Config Values:         {{ prettyMap 23 .ConfigValues }}
 Foundation BluePrints: {{.FoundationBlueprintList}}
-Script Map:            {{.ScriptMap}}
+Script Map:            {{ prettyMap 23 .ScriptMap }}
 Created:               {{.Created}}
 Updated:               {{.Updated}}
 `)
@@ -513,7 +511,10 @@ var blueprintStructureUpdateCmd = &cobra.Command{
 
 		ctx := cmd.Context()
 
-		o := contractorClient.BlueprintStructureBluePrintNewWithID(blueprintID)
+		o, err := contractorClient.BlueprintStructureBluePrintGet(ctx, blueprintID)
+		if err != nil {
+			return err
+		}
 
 		if detailDescription != "" {
 			o.Description = &detailDescription
@@ -536,10 +537,12 @@ var blueprintStructureUpdateCmd = &cobra.Command{
 				return err
 			}
 			id := p.GetURI()
-			for i := 0; i < len(*o.ParentList); i++ {
-				if (*o.ParentList)[i] == id {
-					*o.ParentList = append((*o.ParentList)[:i], (*o.ParentList)[i+1:]...)
-					break
+			if o.ParentList != nil {
+				for i := 0; i < len(*o.ParentList); i++ {
+					if (*o.ParentList)[i] == id {
+						*o.ParentList = append((*o.ParentList)[:i], (*o.ParentList)[i+1:]...)
+						break
+					}
 				}
 			}
 		}
@@ -561,15 +564,17 @@ var blueprintStructureUpdateCmd = &cobra.Command{
 				return err
 			}
 			id := p.GetURI()
-			for i := 0; i < len(*o.FoundationBlueprintList); i++ {
-				if (*o.FoundationBlueprintList)[i] == id {
-					*o.FoundationBlueprintList = append((*o.FoundationBlueprintList)[:i], (*o.FoundationBlueprintList)[i+1:]...)
-					break
+			if o.FoundationBlueprintList != nil {
+				for i := 0; i < len(*o.FoundationBlueprintList); i++ {
+					if (*o.FoundationBlueprintList)[i] == id {
+						*o.FoundationBlueprintList = append((*o.FoundationBlueprintList)[:i], (*o.FoundationBlueprintList)[i+1:]...)
+						break
+					}
 				}
 			}
 		}
 
-		err := o.Update(ctx)
+		err = o.Update(ctx)
 		if err != nil {
 			return err
 		}
@@ -578,9 +583,9 @@ var blueprintStructureUpdateCmd = &cobra.Command{
 Name:                  {{.Name}}
 Description:           {{.Description}}
 Parents:               {{.ParentList}}
-Config Values:         {{.ConfigValues}}
+Config Values:         {{ prettyMap 23 .ConfigValues }}
 Foundation BluePrints: {{.FoundationBlueprintList}}
-Script Map:            {{.ScriptMap}}
+Script Map:            {{ prettyMap 23 .ScriptMap }}
 Created:               {{.Created}}
 Updated:               {{.Updated}}
 `)
@@ -631,21 +636,7 @@ var blueprintStructureConfigCmd = &cobra.Command{
 				(*o.ConfigValues)[configSetName] = configSetValue
 
 			} else if configFile != "" {
-				var reader io.Reader
-				if configFile == "-" {
-					reader = os.Stdin
-				} else {
-					f, err := os.Open(configFile)
-					if err != nil {
-						return err
-					}
-					defer f.Close()
-					reader = f
-				}
-
-				var newValues map[string]interface{}
-				decoder := toml.NewDecoder(reader)
-				err := decoder.Decode(&newValues)
+				newValues, err := readConfigFile(configFile)
 				if err != nil {
 					return err
 				}
@@ -693,7 +684,7 @@ var blueprintStructureScriptLinkCmd = &cobra.Command{
 	Short: "Link Structure Blueprint to Script",
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) != 3 {
-			return errors.New("requires a Blueprint Id/Name, Script Id/Nme, and a Link name (ie: create/destroy/etc) Argument")
+			return errors.New("requires a Blueprint Id/Name, Script Id/Name, and a Link name (ie: create/destroy/etc) Argument")
 		}
 		return nil
 	},
@@ -711,7 +702,7 @@ var blueprintStructureScriptLinkCmd = &cobra.Command{
 
 		_, ok := (*o.ScriptMap)[scriptName]
 		if ok {
-			return fmt.Errorf("blueprint allready has a script linked with that name")
+			return fmt.Errorf("blueprint already has a script linked with that name")
 		}
 
 		s, err := contractorClient.BlueprintScriptGet(ctx, scriptID)
@@ -808,7 +799,7 @@ Updated:               {{.Updated}}
 
 var scriptListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List Scriptss",
+	Short: "List Scripts",
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		ctx := cmd.Context()
@@ -936,12 +927,11 @@ var scriptEditCmd = &cobra.Command{
 						return err
 					}
 				}
-				buf := make([]byte, 4096*1024)
-				len, err := source.Read(buf)
+				buf, err := io.ReadAll(source)
 				if err != nil {
 					return err
 				}
-				newScript = strings.TrimSpace(string(buf[:len]))
+				newScript = strings.TrimSpace(string(buf))
 
 			} else {
 				newScript, err = editBuffer(*o.Script)
@@ -1031,7 +1021,7 @@ var pxeListCmd = &cobra.Command{
 var pxeEditScriptCmd = &cobra.Command{
 	Use:   "editscript",
 	Short: "Edit Script of PXE",
-	Args:  scriptArgCheck,
+	Args:  pxeArgCheck,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		pxeID := args[0]
 
@@ -1052,12 +1042,11 @@ var pxeEditScriptCmd = &cobra.Command{
 					return err
 				}
 			}
-			buf := make([]byte, 4096*1024)
-			len, err := source.Read(buf)
+			buf, err := io.ReadAll(source)
 			if err != nil {
 				return err
 			}
-			newScript = strings.TrimSpace(string(buf[:len]))
+			newScript = strings.TrimSpace(string(buf))
 
 		} else {
 			newScript, err = editBuffer(*o.BootScript)
@@ -1080,7 +1069,7 @@ var pxeEditScriptCmd = &cobra.Command{
 var pxeEditTemplateCmd = &cobra.Command{
 	Use:   "edittemplate",
 	Short: "Edit Template of PXE",
-	Args:  scriptArgCheck,
+	Args:  pxeArgCheck,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		pxeID := args[0]
 
@@ -1101,12 +1090,11 @@ var pxeEditTemplateCmd = &cobra.Command{
 					return err
 				}
 			}
-			buf := make([]byte, 4096*1024)
-			len, err := source.Read(buf)
+			buf, err := io.ReadAll(source)
 			if err != nil {
 				return err
 			}
-			newTemplate = strings.TrimSpace(string(buf[:len]))
+			newTemplate = strings.TrimSpace(string(buf))
 
 		} else {
 			newTemplate, err = editBuffer(*o.Template)
@@ -1131,13 +1119,13 @@ func init() {
 	blueprintFoundationConfigCmd.Flags().StringVarP(&configSetName, "set-name", "n", "", "Set Config Value Key Name, if set-value is not specified, the value will be set to ''")
 	blueprintFoundationConfigCmd.Flags().StringVarP(&configSetValue, "set-value", "v", "", "Set Config Value, ignored if set-name is not specified")
 	blueprintFoundationConfigCmd.Flags().StringVarP(&configDeleteName, "delete", "d", "", "Delete Config Value Key Name")
-	blueprintFoundationConfigCmd.Flags().StringVarP(&configFile, "file", "i", "", "Load Values from file in TOML format, this will be merged with the existing config, '-' for reading from stdin")
+	blueprintFoundationConfigCmd.Flags().StringVarP(&configFile, "file", "i", "", "Load Values from a JSON or TOML file (format is detected from the '.json'/'.toml' extension, or the content if the extension is absent), this will be merged with the existing config, '-' for reading from stdin. In TOML files, keys starting with '<', '>', or '~' must be quoted, e.g. \"<key\" = \"value\"")
 
 	blueprintStructureConfigCmd.Flags().BoolVarP(&configFull, "full", "f", false, "Display the Full/Compiled config")
 	blueprintStructureConfigCmd.Flags().StringVarP(&configSetName, "set-name", "n", "", "Set Config Value Key Name, if set-value is not specified, the value will be set to ''")
 	blueprintStructureConfigCmd.Flags().StringVarP(&configSetValue, "set-value", "v", "", "Set Config Value, ignored if set-name is not specified")
 	blueprintStructureConfigCmd.Flags().StringVarP(&configDeleteName, "delete", "d", "", "Delete Config Value Key Name")
-	blueprintStructureConfigCmd.Flags().StringVarP(&configFile, "file", "i", "", "Load Values from file in TOML format, this will be merged with the existing config, '-' for reading from stdin")
+	blueprintStructureConfigCmd.Flags().StringVarP(&configFile, "file", "i", "", "Load Values from a JSON or TOML file (format is detected from the '.json'/'.toml' extension, or the content if the extension is absent), this will be merged with the existing config, '-' for reading from stdin. In TOML files, keys starting with '<', '>', or '~' must be quoted, e.g. \"<key\" = \"value\"")
 
 	blueprintFoundationCreateCmd.Flags().StringVarP(&detailName, "name", "n", "", "Name of New Foundation Blueprint")
 	blueprintFoundationCreateCmd.Flags().StringVarP(&detailDescription, "description", "d", "", "Description of New Foundation Blueprint")
@@ -1160,7 +1148,7 @@ func init() {
 	blueprintStructureUpdateCmd.Flags().StringVarP(&detailAddFoundationBluePrint, "add-foundation-blueprint", "f", "", "Add Foundation Blueprint to Structure Blueprint")
 	blueprintStructureUpdateCmd.Flags().StringVarP(&detailDeleteFoundationBluePrint, "delete-foundation-blueprint", "g", "", "Remove Foundation Blueprint from Structure Blueprint")
 
-	scriptCreateCmd.Flags().StringVarP(&detailName, "name", "n", "", "Name of New Scriptt")
+	scriptCreateCmd.Flags().StringVarP(&detailName, "name", "n", "", "Name of New Script")
 	scriptCreateCmd.Flags().StringVarP(&detailDescription, "description", "d", "", "Description of New Script")
 
 	scriptUpdateCmd.Flags().StringVarP(&detailDescription, "description", "d", "", "Update the Description of Script with value")

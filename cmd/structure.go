@@ -18,13 +18,10 @@ limitations under the License.
 
 import (
 	"errors"
-	"io"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/pelletier/go-toml/v2"
 	contractor "github.com/t3kton/contractor_goclient"
 
 	cinp "github.com/cinp/go/v2"
@@ -98,7 +95,7 @@ Site:          {{.Site | extractID}}
 Blueprint:     {{.Blueprint | extractID}}
 Foundation:    {{.Foundation | extractID}}
 Config UUID:   {{.ConfigUUID}}
-Config Values: {{.ConfigValues}}
+Config Values: {{ prettyMap 15 .ConfigValues }}
 State:         {{.State}}
 Built At:      {{.BuiltAt}}
 Created:       {{.Created}}
@@ -153,7 +150,7 @@ Site:          {{.Site | extractID}}
 Blueprint:     {{.Blueprint | extractID}}
 Foundation:    {{.Foundation | extractID}}
 Config UUID:   {{.ConfigUUID}}
-Config Values: {{.ConfigValues}}
+Config Values: {{ prettyMap 15 .ConfigValues }}
 State:         {{.State}}
 Built At:      {{.BuiltAt}}
 Created:       {{.Created}}
@@ -216,7 +213,7 @@ Site:          {{.Site | extractID}}
 Blueprint:     {{.Blueprint | extractID}}
 Foundation:    {{.Foundation | extractID}}
 Config UUID:   {{.ConfigUUID}}
-Config Values: {{.ConfigValues}}
+Config Values: {{ prettyMap 15 .ConfigValues }}
 State:         {{.State}}
 Built At:      {{.BuiltAt}}
 Created:       {{.Created}}
@@ -275,21 +272,7 @@ var structureConfigCmd = &cobra.Command{
 				(*o.ConfigValues)[configSetName] = configSetValue
 
 			} else if configFile != "" {
-				var reader io.Reader
-				if configFile == "-" {
-					reader = os.Stdin
-				} else {
-					f, err := os.Open(configFile)
-					if err != nil {
-						return err
-					}
-					defer f.Close()
-					reader = f
-				}
-
-				var newValues map[string]interface{}
-				decoder := toml.NewDecoder(reader)
-				err := decoder.Decode(&newValues)
+				newValues, err := readConfigFile(configFile)
 				if err != nil {
 					return err
 				}
@@ -553,6 +536,62 @@ var structureAddressDeleteCmd = &cobra.Command{
 	},
 }
 
+var structureAddressSetPrimaryCmd = &cobra.Command{
+	Use:   "set-primary",
+	Short: "Make an existing IP address the primary for its structure",
+	Args:  structureAddressArgCheck,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		addressID, err := strconv.Atoi(args[0])
+		if err != nil {
+			return err
+		}
+
+		ctx := cmd.Context()
+
+		target, err := contractorClient.UtilitiesAddressGet(ctx, addressID)
+		if err != nil {
+			return err
+		}
+
+		if target.Networked == nil {
+			return errors.New("address is not attached to a structure")
+		}
+		structureURI := strings.Replace(*target.Networked, "/api/v1/Utilities/Networked", "/api/v1/Building/Structure", 1)
+
+		vchan, err := contractorClient.UtilitiesAddressList(ctx, "structure", map[string]interface{}{"structure": structureURI})
+		if err != nil {
+			return err
+		}
+		for v := range vchan {
+			if v.IsPrimary != nil && *v.IsPrimary && *v.ID != addressID {
+				o := contractorClient.UtilitiesAddressNewWithID(*v.ID)
+				o.IsPrimary = cinp.BoolAddr(false)
+				if err := o.Update(ctx); err != nil {
+					return err
+				}
+			}
+		}
+
+		o := contractorClient.UtilitiesAddressNewWithID(addressID)
+		o.IsPrimary = cinp.BoolAddr(true)
+		if err := o.Update(ctx); err != nil {
+			return err
+		}
+
+		rl := []cinp.Object{}
+		vchan, err = contractorClient.UtilitiesAddressList(ctx, "structure", map[string]interface{}{"structure": structureURI})
+		if err != nil {
+			return err
+		}
+		for v := range vchan {
+			rl = append(rl, v)
+		}
+		outputList(rl, []string{"Id", "Interface", "Address", "Address Block", "Offset", "Is Primary", "Created", "Updated"}, "{{.GetURI | extractID}}	{{.InterfaceName}}	{{.IPAddress}}	{{.AddressBlock | extractID}}	{{.Offset}}	{{.IsPrimary}}	{{.Updated}}	{{.Created}}\n")
+
+		return nil
+	},
+}
+
 var structureJobCmd = &cobra.Command{
 	Use:   "job",
 	Short: "Work with Structure Jobs",
@@ -700,7 +739,7 @@ var structureJobLogCmd = &cobra.Command{
 		for v := range vchan {
 			rl = append(rl, v)
 		}
-		outputList(rl, []string{"Script Name", "Created By", "Started At", "Finished At", "Canceled By", "Cancled At", "Created", "Updated"}, "{{.ScriptName}}	{{.Creator}}	{{.StartedAt}}	{{.FinishedAt}}	{{.CanceledBy}}	{{.CanceledAt}}	{{.Updated}}	{{.Created}}\n")
+		outputList(rl, []string{"Script Name", "Created By", "Started At", "Finished At", "Canceled By", "Canceled At", "Created", "Updated"}, "{{.ScriptName}}	{{.Creator}}	{{.StartedAt}}	{{.FinishedAt}}	{{.CanceledBy}}	{{.CanceledAt}}	{{.Updated}}	{{.Created}}\n")
 
 		return nil
 	},
@@ -952,7 +991,7 @@ Network:          {{.Network | extractID}}
 Structure:        {{.Structure | extractID}}
 Primary:          {{.PrimaryInterface | extractID}}
 Secondaries:      {{.SecondaryInterfaces | extractIDList}}
-Parameters:       {{.Parameters}}
+Parameters:       {{ prettyMap 18 .Parameters }}
 Created:          {{.Created}}
 Updated:          {{.Updated}}
 `)
@@ -1016,7 +1055,7 @@ Network:          {{.Network | extractID}}
 Structure:        {{.Structure | extractID}}
 Primary:          {{.PrimaryInterface | extractID}}
 Secondaries:      {{.SecondaryInterfaces | extractIDList}}
-Parameters:       {{.Parameters}}
+Parameters:       {{ prettyMap 18 .Parameters }}
 Created:          {{.Created}}
 Updated:          {{.Updated}}
 `)
@@ -1056,8 +1095,12 @@ var structureAggInterfaceUpdateCmd = &cobra.Command{
 
 		if detailSecondary != "" {
 			o.SecondaryInterfaces = &[]string{}
-			for id := range strings.Split(detailSecondary, ",") {
-				ri := contractorClient.UtilitiesNetworkInterfaceNewWithID(id)
+			for _, id := range strings.Split(detailSecondary, ",") {
+				i, err := strconv.Atoi(id)
+				if err != nil {
+					return err
+				}
+				ri := contractorClient.UtilitiesNetworkInterfaceNewWithID(i)
 				*o.SecondaryInterfaces = append(*o.SecondaryInterfaces, ri.GetURI())
 			}
 		}
@@ -1073,7 +1116,7 @@ Network:          {{.Network | extractID}}
 Structure:        {{.Structure | extractID}}
 Primary:          {{.PrimaryInterface | extractID}}
 Secondaries:      {{.SecondaryInterfaces | extractIDList}}
-Parameters:       {{.Parameters}}
+Parameters:       {{ prettyMap 18 .Parameters }}
 Created:          {{.Created}}
 Updated:          {{.Updated}}
 `)
@@ -1108,7 +1151,7 @@ func init() {
 	structureConfigCmd.Flags().StringVarP(&configSetName, "set-name", "n", "", "Set Config Value Key Name, if set-value is not specified, the value will be set to ''")
 	structureConfigCmd.Flags().StringVarP(&configSetValue, "set-value", "v", "", "Set Config Value, ignored if set-name is not specified") // TODO: make a numberic version
 	structureConfigCmd.Flags().StringVarP(&configDeleteName, "delete", "d", "", "Delete Config Value Key Name")
-	structureConfigCmd.Flags().StringVarP(&configFile, "file", "i", "", "Load Values from file in TOML format, this will be merged with the existing config, '-' for reading from stdin")
+	structureConfigCmd.Flags().StringVarP(&configFile, "file", "i", "", "Load Values from a JSON or TOML file (format is detected from the '.json'/'.toml' extension, or the content if the extension is absent), this will be merged with the existing config, '-' for reading from stdin. In TOML files, keys starting with '<', '>', or '~' must be quoted, e.g. \"<key\" = \"value\"")
 
 	structureCreateCmd.Flags().StringVarP(&detailHostname, "hostname", "o", "", "Hostname of New Structure")
 	structureCreateCmd.Flags().StringVarP(&detailSite, "site", "s", "", "Site of New Structure")
@@ -1121,16 +1164,16 @@ func init() {
 	structureUpdateCmd.Flags().StringVarP(&detailFoundation, "foundation", "f", "", "Update the Foundation of Structure with value")
 
 	structureAddressNextCmd.Flags().IntVarP(&detailAddressBlock, "addressblock", "a", 0, "Address Block to get an IP From")
-	structureAddressNextCmd.Flags().StringVarP(&detailInterfaceName, "interfacename", "n", "", "Name of the Interface to assigne the IP To")
+	structureAddressNextCmd.Flags().StringVarP(&detailInterfaceName, "interfacename", "n", "", "Name of the Interface to assign the IP to")
 	structureAddressNextCmd.Flags().BoolVarP(&detailIsPrimary, "primary", "p", false, "If this is the primary IP Address")
 
 	structureAddressAddCmd.Flags().IntVarP(&detailAddressBlock, "addressblock", "a", 0, "Address Block to get an IP From")
-	structureAddressAddCmd.Flags().StringVarP(&detailInterfaceName, "interfacename", "n", "", "Name of the Interface to assigne the IP To")
+	structureAddressAddCmd.Flags().StringVarP(&detailInterfaceName, "interfacename", "n", "", "Name of the Interface to assign the IP to")
 	structureAddressAddCmd.Flags().IntVarP(&detailOffset, "offset", "o", 0, "Offset inside the Address Block to use")
 	structureAddressAddCmd.Flags().BoolVarP(&detailIsPrimary, "primary", "p", false, "If this is the primary IP Address")
 
 	structureAddressUpdateCmd.Flags().IntVarP(&detailAddressBlock, "addressblock", "a", 0, "Address Block to get an IP From")
-	structureAddressUpdateCmd.Flags().StringVarP(&detailInterfaceName, "interfacename", "n", "", "Name of the Interface to assigne the IP To")
+	structureAddressUpdateCmd.Flags().StringVarP(&detailInterfaceName, "interfacename", "n", "", "Name of the Interface to assign the IP to")
 	structureAddressUpdateCmd.Flags().IntVarP(&detailOffset, "offset", "o", 0, "Offset inside the Address Block to use")
 
 	structureInterfaceCreateCmd.Flags().StringVarP(&detailName, "name", "n", "", "Name of the new Interface")
@@ -1153,7 +1196,7 @@ func init() {
 	structureCmd.AddCommand(structureListCmd, structureGetCmd, structureCreateCmd, structureUpdateCmd, structureDeleteCmd, structureConfigCmd)
 
 	structureCmd.AddCommand(structureAddressCmd)
-	structureAddressCmd.AddCommand(structureAddressListCmd, structureAddressNextCmd, structureAddressAddCmd, structureAddressUpdateCmd, structureAddressDeleteCmd)
+	structureAddressCmd.AddCommand(structureAddressListCmd, structureAddressNextCmd, structureAddressAddCmd, structureAddressUpdateCmd, structureAddressDeleteCmd, structureAddressSetPrimaryCmd)
 
 	structureCmd.AddCommand(structureJobCmd)
 	structureJobCmd.AddCommand(structureJobIdCmd, structureJobDoCreateCmd, structureJobDoDestroyCmd, structureJobDoUtilityCmd)

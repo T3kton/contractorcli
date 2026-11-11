@@ -46,7 +46,7 @@ Container Id:   {{.DockerID}}
 Type:           {{.Type}}
 Site:           {{.Site | extractID}}
 Blueprint:      {{.Blueprint | extractID}}
-Id Map:         {{.IDMap}}
+Id Map:         {{ prettyMap 16 .IDMap }}
 Class List:     {{.ClassList}}
 State:          {{.State}}
 Located At:     {{.LocatedAt}}
@@ -104,7 +104,7 @@ Container Id:   {{.DockerID}}
 Type:           {{.Type}}
 Site:           {{.Site | extractID}}
 Blueprint:      {{.Blueprint | extractID}}
-Id Map:         {{.IDMap}}
+Id Map:         {{ prettyMap 16 .IDMap }}
 Class List:     {{.ClassList}}
 State:          {{.State}}
 Located At:     {{.LocatedAt}}
@@ -163,7 +163,7 @@ Container Id:   {{.DockerID}}
 Type:           {{.Type}}
 Site:           {{.Site | extractID}}
 Blueprint:      {{.Blueprint | extractID}}
-Id Map:         {{.IDMap}}
+Id Map:         {{ prettyMap 16 .IDMap }}
 Class List:     {{.ClassList}}
 State:          {{.State}}
 Located At:     {{.LocatedAt}}
@@ -182,11 +182,11 @@ func init() {
 	foundationDockerCreateCmd.Flags().StringVarP(&detailLocator, "locator", "l", "", "Locator of New Docker Foundation")
 	foundationDockerCreateCmd.Flags().StringVarP(&detailSite, "site", "s", "", "Site of New Docker Foundation")
 	foundationDockerCreateCmd.Flags().StringVarP(&detailBlueprint, "blueprint", "b", "", "Blueprint of New Docker Foundation")
-	foundationDockerCreateCmd.Flags().StringVarP(&detailComplex, "complex", "x", "", "Plot of New Docker Foundation")
+	foundationDockerCreateCmd.Flags().StringVarP(&detailComplex, "complex", "x", "", "Complex of New Docker Foundation")
 
 	foundationDockerUpdateCmd.Flags().StringVarP(&detailSite, "site", "s", "", "Update the Site of Foundation with value")
 	foundationDockerUpdateCmd.Flags().StringVarP(&detailBlueprint, "blueprint", "b", "", "Update the Blueprint of Foundation with value")
-	foundationDockerUpdateCmd.Flags().StringVarP(&detailComplex, "complex", "x", "", "Update the Plot of the Docker Foundation")
+	foundationDockerUpdateCmd.Flags().StringVarP(&detailComplex, "complex", "x", "", "Update the Complex of the Docker Foundation")
 
 	foundationCmd.AddCommand(foundationDockerCmd)
 	foundationDockerCmd.AddCommand(foundationDockerGetCmd, foundationDockerCreateCmd, foundationDockerUpdateCmd)

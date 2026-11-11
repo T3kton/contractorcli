@@ -72,8 +72,8 @@ var cartographerGetCmd = &cobra.Command{
 Identifier:    {{.Identifier}}
 Message:       {{.Message}}
 Foundation:    {{or .Foundation ":<None>" | extractID}}
-Last Checkin:  {{.Created}}
-Info Map:      {{.InfoMap}}
+Last Checkin:  {{.LastCheckin}}
+Info Map:      {{ prettyMap 15 .InfoMap }}
 Created:       {{.Created}}
 Updated:       {{.Updated}}
 `)
